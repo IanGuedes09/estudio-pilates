@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\MockVitaliData;
+use App\Support\DashboardResumo;
 
 class DashboardController extends Controller
 {
-    // Entrega dados mockados para montar o dashboard rapidamente.
     public function index()
     {
-        $resumo = MockVitaliData::dashboardResumo();
+        $resumo = DashboardResumo::make();
 
         return view('dashboard', [
             'resumo' => $resumo,

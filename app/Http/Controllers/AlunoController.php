@@ -2,35 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Aluno;
 use Illuminate\Http\Request;
 
 class AlunoController extends Controller
 {
     public function index()
-{
-    // Listar todos os alunos (veremos isso depois)
-    return view('alunos.index');
-}
+    {
+        return view('alunos.index', [
+            'alunos' => Aluno::query()->orderBy('nome')->get(),
+        ]);
+    }
 
-public function create()
-{
-    // Mostrar o formulário de cadastro
-    return view('alunos.create');
-}
+    public function create()
+    {
+        return view('alunos.create');
+    }
 
-public function store (Request $request)
-{
-    // 1. Validação básica para não salvar lixo no banco
-    $request->validate([
-        'nome' => 'required|string|max:255',
-        'email' => 'required|email',
-        'telefone' => 'required',
-    ]);
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'nome' => 'required|string|max:255',
+            'email' => 'required|email',
+            'telefone' => 'required|string|max:50',
+            'cpf' => 'nullable|string|max:20',
+        ]);
 
-    // 2. Criar o aluno com os dados do formulário
-    Aluno::create($request->all());
+        Aluno::create($data);
 
-    // 3. Redirecionar de volta com uma mensagem de sucesso
-    return redirect()->route('alunos.index')->with('success', 'Aluno cadastrado com sucesso!');
-}
+        return redirect()->route('alunos.index')->with('success', 'Aluno cadastrado com sucesso!');
+    }
 }

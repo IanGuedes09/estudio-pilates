@@ -1,6 +1,9 @@
 <?php
 
-use App\Http\Controllers\Api\MockVitaliApiController;
+use App\Http\Controllers\Api\AgendaApiController;
+use App\Http\Controllers\Api\AlunoApiController;
+use App\Http\Controllers\Api\DashboardApiController;
+use App\Http\Controllers\Api\PagamentoApiController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AgendaController;
@@ -41,16 +44,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/alunos', [AlunoController::class, 'store'])->name('alunos.store');
 });
 
-// API mockada para desenvolvimento front-first.
+// API protegida (dados reais do banco).
 Route::middleware('auth')->prefix('api/v1')->name('api.v1.')->group(function () {
-    Route::get('/dashboard-resumo', [MockVitaliApiController::class, 'dashboardResumo'])->name('dashboard-resumo');
+    Route::get('/dashboard-resumo', [DashboardApiController::class, 'resumo'])->name('dashboard-resumo');
 
-    Route::get('/agenda', [MockVitaliApiController::class, 'agenda'])->name('agenda.index');
-    Route::get('/agenda/{id}', [MockVitaliApiController::class, 'agendaShow'])->name('agenda.show');
+    Route::get('/alunos', [AlunoApiController::class, 'index'])->name('alunos.catalogo');
 
-    Route::get('/pagamentos', [MockVitaliApiController::class, 'pagamentos'])->name('pagamentos.index');
-    Route::get('/pagamentos/{id}', [MockVitaliApiController::class, 'pagamentosShow'])->name('pagamentos.show');
+    Route::get('/agenda', [AgendaApiController::class, 'index'])->name('agenda.index');
+    Route::post('/agenda', [AgendaApiController::class, 'store'])->name('agenda.store');
+    Route::patch('/agenda/{agendaItem}', [AgendaApiController::class, 'update'])->name('agenda.update');
 
-    Route::get('/comprovantes', [MockVitaliApiController::class, 'comprovantes'])->name('comprovantes.index');
-    Route::get('/comprovantes/{id}', [MockVitaliApiController::class, 'comprovantesShow'])->name('comprovantes.show');
+    Route::get('/pagamentos', [PagamentoApiController::class, 'index'])->name('pagamentos.index');
+    Route::post('/pagamentos/{pagamento}/comprovantes', [PagamentoApiController::class, 'storeComprovante'])->name('pagamentos.comprovantes.store');
+    Route::delete('/pagamentos/{pagamento}/comprovantes/{comprovante}', [PagamentoApiController::class, 'destroyComprovante'])->name('pagamentos.comprovantes.destroy');
 });

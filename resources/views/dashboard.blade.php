@@ -85,13 +85,17 @@
 
     <div class="mt-6 rounded-2xl border border-slate-200 bg-white/70 p-5 dark:border-slate-700 dark:bg-slate-900/60">
         <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Próximas aulas</h2>
-        <ul class="space-y-2">
-            @foreach ($proximasAulas as $aula)
-                <li class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
-                    <span class="text-sm text-slate-700 dark:text-slate-200">{{ $aula['hora_inicio'] }} - {{ $aula['aluna_nome'] }}</span>
-                    <span class="text-xs text-slate-500 dark:text-slate-400">{{ $aula['tipo_aula'] }}</span>
-                </li>
-            @endforeach
-        </ul>
+        @if (count($proximasAulas) === 0)
+            <p class="text-sm text-slate-500 dark:text-slate-400">Nenhuma aula futura na agenda. Cadastre itens na agenda ou rode o seeder de demonstração.</p>
+        @else
+            <ul class="space-y-2">
+                @foreach ($proximasAulas as $aula)
+                    <li class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <span class="text-sm text-slate-700 dark:text-slate-200">{{ $aula['hora_inicio'] }} - {{ $aula['aluna_nome'] }}</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">{{ $aula['tipo_aula'] }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
     </div>
 @endsection
