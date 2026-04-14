@@ -1,0 +1,5 @@
+# Nixpacks: Laravel + Vite (package.json) pode registrar PHP e Node ao mesmo tempo,
+# gerando nginx com dois blocos `location /` → [emerg] duplicate location "/".
+# Forçar só o provider PHP evita o conflito; o plano PHP do Nixpacks ainda trata
+# composer e, com package.json, o build de assets do Vite.
+providers = ["php"]
