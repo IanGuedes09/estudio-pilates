@@ -3,6 +3,11 @@
 @section('title', 'Dashboard - Studio Vitali')
 
 @section('content')
+    @php
+        $isProfessor = (auth()->user()->perfil ?? null) === 'Professor';
+        $todayBr = now()->format('d/m');
+    @endphp
+
     <div class="fade-in-up">
         <h1 class="mb-2 text-3xl font-bold text-slate-900 dark:text-white">Bem-vindo ao Dashboard</h1>
         <p class="mb-6 text-sm text-slate-600 dark:text-slate-300">Acompanhe os atalhos principais do Studio Vitali.</p>
@@ -18,24 +23,26 @@
         Aqui você pode colocar links para seus módulos, relatórios e indicadores principais do estúdio.
     </p>
 
-    <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
-            <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Alunas ativas</p>
-            <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{{ $resumo['alunas_ativas'] }}</p>
+    @if (!$isProfessor)
+        <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Alunas ativas</p>
+                <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{{ $resumo['alunas_ativas'] }}</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Aulas hoje</p>
+                <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{{ $resumo['aulas_hoje'] }}</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Receita mês</p>
+                <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">R$ {{ number_format($resumo['receita_mes'], 2, ',', '.') }}</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Lucro estúdio</p>
+                <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">R$ {{ number_format($resumo['lucro_estudio_mes'], 2, ',', '.') }}</p>
+            </div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
-            <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Aulas hoje</p>
-            <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{{ $resumo['aulas_hoje'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
-            <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Receita mês</p>
-            <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">R$ {{ number_format($resumo['receita_mes'], 2, ',', '.') }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
-            <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Lucro estúdio</p>
-            <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">R$ {{ number_format($resumo['lucro_estudio_mes'], 2, ',', '.') }}</p>
-        </div>
-    </div>
+    @endif
 
     <div class="fade-in-up-delay grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <a href="{{ route('agenda.index') }}" class="group rounded-2xl border border-emerald-300/60 bg-emerald-400/10 p-5 text-emerald-900 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-400/20 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-100">
@@ -71,27 +78,47 @@
             <p class="mt-1 text-sm text-violet-800/80 dark:text-violet-100/80">Acompanhe recebimentos, comissao e repasses.</p>
         </a>
 
-        <a href="{{ route('alunos.create') }}" class="group rounded-2xl border border-cyan-300/60 bg-cyan-400/10 p-5 text-cyan-900 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-400/20 dark:border-cyan-400/40 dark:bg-cyan-500/10 dark:text-cyan-100">
-            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-200">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-            </div>
-            <p class="text-xs uppercase tracking-wider text-cyan-700 dark:text-cyan-200">Ação rápida</p>
-            <p class="mt-2 text-lg font-semibold">Cadastrar Novo Aluno</p>
-            <p class="mt-1 text-sm text-cyan-800/80 dark:text-cyan-100/80">Adicionar um novo aluno em poucos passos.</p>
-        </a>
+        @if (!$isProfessor)
+            <a href="{{ route('alunos.create') }}" class="group rounded-2xl border border-cyan-300/60 bg-cyan-400/10 p-5 text-cyan-900 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-400/20 dark:border-cyan-400/40 dark:bg-cyan-500/10 dark:text-cyan-100">
+                <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                </div>
+                <p class="text-xs uppercase tracking-wider text-cyan-700 dark:text-cyan-200">Ação rápida</p>
+                <p class="mt-2 text-lg font-semibold">Cadastrar Novo Aluno</p>
+                <p class="mt-1 text-sm text-cyan-800/80 dark:text-cyan-100/80">Adicionar um novo aluno em poucos passos.</p>
+            </a>
+        @endif
+
+        @if ((auth()->user()->perfil ?? null) === 'Administrador')
+            <a href="{{ route('professores.create') }}" class="group rounded-2xl border border-amber-300/60 bg-amber-400/10 p-5 text-amber-900 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-400/20 dark:border-amber-400/40 dark:bg-amber-500/10 dark:text-amber-100">
+                <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                </div>
+                <p class="text-xs uppercase tracking-wider text-amber-700 dark:text-amber-200">Administração</p>
+                <p class="mt-2 text-lg font-semibold">Cadastro de Professores</p>
+                <p class="mt-1 text-sm text-amber-800/80 dark:text-amber-100/80">Crie o acesso e os dados do professor no sistema.</p>
+            </a>
+        @endif
     </div>
 
     <div class="mt-6 rounded-2xl border border-slate-200 bg-white/70 p-5 dark:border-slate-700 dark:bg-slate-900/60">
-        <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Próximas aulas</h2>
-        <ul class="space-y-2">
-            @foreach ($proximasAulas as $aula)
-                <li class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
-                    <span class="text-sm text-slate-700 dark:text-slate-200">{{ $aula['hora_inicio'] }} - {{ $aula['aluna_nome'] }}</span>
-                    <span class="text-xs text-slate-500 dark:text-slate-400">{{ $aula['tipo_aula'] }}</span>
-                </li>
-            @endforeach
-        </ul>
+        <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Aulas do dia ({{ $todayBr }})</h2>
+        @if (count($proximasAulas) === 0)
+            <p class="text-sm text-slate-500 dark:text-slate-400">Nenhuma aula para hoje na agenda.</p>
+        @else
+            <ul class="space-y-2">
+                @foreach ($proximasAulas as $aula)
+                    <li class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <span class="text-sm text-slate-700 dark:text-slate-200">{{ $aula['hora_inicio'] }} - {{ $aula['aluna_nome'] }}</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">{{ \Carbon\Carbon::parse($aula['data'])->format('d/m') }}</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">{{ $aula['tipo_aula'] }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
     </div>
 @endsection
