@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Aluno;
 use App\Models\Pagamento;
 use App\Models\PagamentoComprovante;
 use Illuminate\Http\JsonResponse;
@@ -13,12 +14,20 @@ class PagamentoApiController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        // Garante que toda aluna ativa apareca no financeiro do mes selecionado.
+        if ($request->filled('competencia')) {
+            $this->ensureCompetenciaRows($request->string('competencia')->toString(), $request);
+        }
+
         $query = Pagamento::query()
             ->with(['aluno', 'comprovantes' => function ($q) {
                 $q->orderByDesc('created_at');
             }])
+            ->whereNotNull('aluno_id')
             ->orderBy('professora_nome')
             ->orderBy('aluna_nome');
+
+        $this->applyProfessorScope($query, $request);
 
         if ($request->filled('competencia')) {
             $query->where('competencia', $request->string('competencia')->toString());
@@ -41,7 +50,8 @@ class PagamentoApiController extends Controller
             $query->where('metodo', $request->string('metodo')->toString());
         }
 
-        $items = $query->get()->map(function (Pagamento $item) {
+        $isProfessor = ($request->user()?->perfil ?? null) === 'Professor';
+        $items = $query->get()->map(function (Pagamento $item) use ($isProfessor) {
             return [
                 'id' => $item->id,
                 'aluno_id' => $item->aluno_id,
@@ -49,14 +59,14 @@ class PagamentoApiController extends Controller
                 'professora_nome' => $item->professora_nome,
                 'competencia' => $item->competencia,
                 'valor_bruto' => $item->valor_bruto,
-                'desconto' => $item->desconto,
-                'valor_liquido' => $item->valor_liquido,
+                'desconto' => $isProfessor ? null : $item->desconto,
+                'valor_liquido' => $isProfessor ? null : $item->valor_liquido,
                 'metodo' => $item->metodo,
                 'status' => $this->effectiveStatus($item),
                 'data_pagamento' => $item->data_pagamento?->format('Y-m-d'),
-                'percentual_comissao' => $item->percentual_comissao,
-                'valor_comissao' => $item->valor_comissao,
-                'valor_estudio' => $item->valor_estudio,
+                'percentual_comissao' => $isProfessor ? null : $item->percentual_comissao,
+                'valor_comissao' => $isProfessor ? null : $item->valor_comissao,
+                'valor_estudio' => $isProfessor ? null : $item->valor_estudio,
                 'observacoes' => $item->observacoes,
                 'comprovantes' => $item->comprovantes->map(function (PagamentoComprovante $c) {
                     return [
@@ -75,8 +85,28 @@ class PagamentoApiController extends Controller
         return response()->json($items);
     }
 
+    public function update(Request $request, Pagamento $pagamento): JsonResponse
+    {
+        $this->assertProfessorPagamentoAccess($request, $pagamento);
+
+        $data = $request->validate([
+            'metodo' => ['required', 'in:PIX,DINHEIRO,CARTAO,BOLETO,TRANSFERENCIA'],
+        ]);
+
+        $pagamento->metodo = $data['metodo'];
+        $pagamento->save();
+
+        return response()->json([
+            'ok' => true,
+            'id' => $pagamento->id,
+            'metodo' => $pagamento->metodo,
+        ]);
+    }
+
     public function storeComprovante(Request $request, Pagamento $pagamento): JsonResponse
     {
+        $this->assertProfessorPagamentoAccess($request, $pagamento);
+
         $data = $request->validate([
             'competencia' => ['required', 'regex:/^\d{4}\-\d{2}$/'],
             'arquivo' => ['required', 'file', 'max:10240'],
@@ -118,6 +148,8 @@ class PagamentoApiController extends Controller
 
     public function destroyComprovante(Pagamento $pagamento, PagamentoComprovante $comprovante): JsonResponse
     {
+        $this->assertProfessorPagamentoAccess(request(), $pagamento);
+
         if ($comprovante->pagamento_id !== $pagamento->id) {
             abort(404);
         }
@@ -148,5 +180,110 @@ class PagamentoApiController extends Controller
         }
 
         return $item->comprovantes->isNotEmpty() ? 'PAGO' : 'PENDENTE';
+    }
+
+    /**
+     * Para uma competencia, cria pendencia financeira para cada aluna ativa sem lancamento.
+     */
+    private function ensureCompetenciaRows(string $competencia, ?Request $request = null): void
+    {
+        if (!preg_match('/^\d{4}\-\d{2}$/', $competencia)) {
+            return;
+        }
+
+        $alunosQuery = Aluno::query()
+            ->with('professor:id,nome,comissao_percentual')
+            ->orderBy('id');
+
+        if (($request?->user()?->perfil ?? null) === 'Professor') {
+            $alunosQuery->whereHas('professor', function ($q) use ($request) {
+                $q->where('user_id', $request->user()->id);
+            });
+        }
+
+        $alunos = $alunosQuery->get(['id', 'nome', 'valor_mensalidade', 'professor_id']);
+        if ($alunos->isEmpty()) {
+            return;
+        }
+
+        foreach ($alunos as $aluno) {
+            $financeiro = $this->buildFinanceFromAluno($aluno);
+
+            $pagamento = Pagamento::query()->firstOrNew([
+                'aluno_id' => $aluno->id,
+                'competencia' => $competencia,
+            ]);
+
+            if (!$pagamento->exists) {
+                $pagamento->fill([
+                    ...$financeiro,
+                    'metodo' => 'PIX',
+                    'status' => 'PENDENTE',
+                    'data_pagamento' => null,
+                    'observacoes' => 'Gerado automaticamente a partir do cadastro de alunos e professores.',
+                ]);
+                $pagamento->save();
+                continue;
+            }
+
+            // Mantém histórico: não recalcula pagamentos cancelados ou já quitados por comprovante.
+            if ($pagamento->status === 'CANCELADO' || $pagamento->comprovantes()->exists()) {
+                continue;
+            }
+
+            $pagamento->fill($financeiro);
+            $pagamento->status = 'PENDENTE';
+            $pagamento->save();
+        }
+    }
+
+    private function buildFinanceFromAluno(Aluno $aluno): array
+    {
+        $valorBruto = (float) ($aluno->valor_mensalidade ?? 0);
+        $desconto = 0.0;
+        $valorLiquido = max(0.0, $valorBruto - $desconto);
+        $percentualComissao = (float) ($aluno->professor?->comissao_percentual ?? 0);
+        $valorComissao = round($valorLiquido * ($percentualComissao / 100), 2);
+        $valorEstudio = round($valorLiquido - $valorComissao, 2);
+
+        return [
+            'aluna_nome' => $aluno->nome,
+            'professora_nome' => $aluno->professor?->nome ?? 'Sem professor',
+            'valor_bruto' => $valorBruto,
+            'desconto' => $desconto,
+            'valor_liquido' => $valorLiquido,
+            'percentual_comissao' => $percentualComissao,
+            'valor_comissao' => $valorComissao,
+            'valor_estudio' => $valorEstudio,
+        ];
+    }
+
+    private function applyProfessorScope($query, Request $request): void
+    {
+        if (($request->user()?->perfil ?? null) !== 'Professor') {
+            return;
+        }
+
+        $query->whereHas('aluno.professor', function ($q) use ($request) {
+            $q->where('user_id', $request->user()->id);
+        });
+    }
+
+    private function assertProfessorPagamentoAccess(Request $request, Pagamento $pagamento): void
+    {
+        if (($request->user()?->perfil ?? null) !== 'Professor') {
+            return;
+        }
+
+        $allowed = Pagamento::query()
+            ->whereKey($pagamento->id)
+            ->whereHas('aluno.professor', function ($q) use ($request) {
+                $q->where('user_id', $request->user()->id);
+            })
+            ->exists();
+
+        if (!$allowed) {
+            abort(403, 'Você só pode acessar pagamentos dos seus alunos.');
+        }
     }
 }

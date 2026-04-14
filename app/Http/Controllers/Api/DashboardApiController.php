@@ -10,6 +10,6 @@ class DashboardApiController extends Controller
 {
     public function resumo(): JsonResponse
     {
-        return response()->json(DashboardResumo::make());
+        return response()->json(DashboardResumo::make(auth()->user()));
     }
 }

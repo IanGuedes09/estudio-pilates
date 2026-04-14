@@ -8,7 +8,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $resumo = DashboardResumo::make();
+        $resumo = DashboardResumo::make(auth()->user());
 
         return view('dashboard', [
             'resumo' => $resumo,
