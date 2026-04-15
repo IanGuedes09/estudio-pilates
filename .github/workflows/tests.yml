@@ -6,6 +6,7 @@ on:
       - main
       - master
       - develop
+      - desenv
   pull_request:
 
 permissions:
