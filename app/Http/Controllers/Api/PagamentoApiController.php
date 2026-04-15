@@ -2,16 +2,20 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\AuthorizesProfessorScope;
 use App\Http\Controllers\Controller;
 use App\Models\Aluno;
 use App\Models\Pagamento;
 use App\Models\PagamentoComprovante;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class PagamentoApiController extends Controller
 {
+    use AuthorizesProfessorScope;
+
     public function index(Request $request): JsonResponse
     {
         // Garante que toda aluna ativa apareca no financeiro do mes selecionado.
@@ -27,12 +31,15 @@ class PagamentoApiController extends Controller
             ->orderBy('professora_nome')
             ->orderBy('aluna_nome');
 
-        $this->applyProfessorScope($query, $request);
+        if ($this->isProfessorUser()) {
+            $pid = $this->requireCurrentProfessorId();
+            $query->whereHas('aluno', fn (Builder $q) => $q->where('professor_id', $pid));
+        }
 
         if ($request->filled('competencia')) {
             $query->where('competencia', $request->string('competencia')->toString());
         }
-        if ($request->filled('professora')) {
+        if ($request->filled('professora') && ! $this->isProfessorUser()) {
             $query->where('professora_nome', $request->string('professora')->toString());
         }
         if ($request->filled('status')) {
@@ -50,8 +57,7 @@ class PagamentoApiController extends Controller
             $query->where('metodo', $request->string('metodo')->toString());
         }
 
-        $isProfessor = ($request->user()?->perfil ?? null) === 'Professor';
-        $items = $query->get()->map(function (Pagamento $item) use ($isProfessor) {
+        $items = $query->get()->map(function (Pagamento $item) {
             return [
                 'id' => $item->id,
                 'aluno_id' => $item->aluno_id,
@@ -59,14 +65,14 @@ class PagamentoApiController extends Controller
                 'professora_nome' => $item->professora_nome,
                 'competencia' => $item->competencia,
                 'valor_bruto' => $item->valor_bruto,
-                'desconto' => $isProfessor ? null : $item->desconto,
-                'valor_liquido' => $isProfessor ? null : $item->valor_liquido,
+                'desconto' => $item->desconto,
+                'valor_liquido' => $item->valor_liquido,
                 'metodo' => $item->metodo,
                 'status' => $this->effectiveStatus($item),
                 'data_pagamento' => $item->data_pagamento?->format('Y-m-d'),
-                'percentual_comissao' => $isProfessor ? null : $item->percentual_comissao,
-                'valor_comissao' => $isProfessor ? null : $item->valor_comissao,
-                'valor_estudio' => $isProfessor ? null : $item->valor_estudio,
+                'percentual_comissao' => $item->percentual_comissao,
+                'valor_comissao' => $item->valor_comissao,
+                'valor_estudio' => $item->valor_estudio,
                 'observacoes' => $item->observacoes,
                 'comprovantes' => $item->comprovantes->map(function (PagamentoComprovante $c) {
                     return [
@@ -87,7 +93,7 @@ class PagamentoApiController extends Controller
 
     public function update(Request $request, Pagamento $pagamento): JsonResponse
     {
-        $this->assertProfessorPagamentoAccess($request, $pagamento);
+        $this->assertPagamentoAccessibleAsProfessor($pagamento);
 
         $data = $request->validate([
             'metodo' => ['required', 'in:PIX,DINHEIRO,CARTAO,BOLETO,TRANSFERENCIA'],
@@ -105,7 +111,7 @@ class PagamentoApiController extends Controller
 
     public function storeComprovante(Request $request, Pagamento $pagamento): JsonResponse
     {
-        $this->assertProfessorPagamentoAccess($request, $pagamento);
+        $this->assertPagamentoAccessibleAsProfessor($pagamento);
 
         $data = $request->validate([
             'competencia' => ['required', 'regex:/^\d{4}\-\d{2}$/'],
@@ -148,7 +154,7 @@ class PagamentoApiController extends Controller
 
     public function destroyComprovante(Pagamento $pagamento, PagamentoComprovante $comprovante): JsonResponse
     {
-        $this->assertProfessorPagamentoAccess(request(), $pagamento);
+        $this->assertPagamentoAccessibleAsProfessor($pagamento);
 
         if ($comprovante->pagamento_id !== $pagamento->id) {
             abort(404);
@@ -195,10 +201,12 @@ class PagamentoApiController extends Controller
             ->with('professor:id,nome,comissao_percentual')
             ->orderBy('id');
 
-        if (($request?->user()?->perfil ?? null) === 'Professor') {
-            $alunosQuery->whereHas('professor', function ($q) use ($request) {
-                $q->where('user_id', $request->user()->id);
-            });
+        if ($request?->user() && ($request->user()->perfil ?? null) === 'Professor') {
+            $pid = $request->user()->professorVinculado()?->id;
+            if (! $pid) {
+                return;
+            }
+            $alunosQuery->where('professor_id', $pid);
         }
 
         $alunos = $alunosQuery->get(['id', 'nome', 'valor_mensalidade', 'professor_id']);
@@ -258,32 +266,4 @@ class PagamentoApiController extends Controller
         ];
     }
 
-    private function applyProfessorScope($query, Request $request): void
-    {
-        if (($request->user()?->perfil ?? null) !== 'Professor') {
-            return;
-        }
-
-        $query->whereHas('aluno.professor', function ($q) use ($request) {
-            $q->where('user_id', $request->user()->id);
-        });
-    }
-
-    private function assertProfessorPagamentoAccess(Request $request, Pagamento $pagamento): void
-    {
-        if (($request->user()?->perfil ?? null) !== 'Professor') {
-            return;
-        }
-
-        $allowed = Pagamento::query()
-            ->whereKey($pagamento->id)
-            ->whereHas('aluno.professor', function ($q) use ($request) {
-                $q->where('user_id', $request->user()->id);
-            })
-            ->exists();
-
-        if (!$allowed) {
-            abort(403, 'Você só pode acessar pagamentos dos seus alunos.');
-        }
-    }
 }

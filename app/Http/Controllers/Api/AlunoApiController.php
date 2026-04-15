@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\AuthorizesProfessorScope;
 use App\Http\Controllers\Controller;
 use App\Models\Aluno;
 use Illuminate\Http\JsonResponse;
@@ -9,16 +10,16 @@ use Illuminate\Http\Request;
 
 class AlunoApiController extends Controller
 {
+    use AuthorizesProfessorScope;
+
     public function index(Request $request): JsonResponse
     {
         $query = Aluno::query()
             ->with('professor:id,nome')
             ->orderBy('nome');
 
-        if (($request->user()?->perfil ?? null) === 'Professor') {
-            $query->whereHas('professor', function ($q) use ($request) {
-                $q->where('user_id', $request->user()->id);
-            });
+        if ($this->isProfessorUser()) {
+            $query->where('professor_id', $this->requireCurrentProfessorId());
         }
 
         $alunos = $query

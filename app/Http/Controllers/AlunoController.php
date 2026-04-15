@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesProfessorScope;
 use App\Models\Aluno;
 use App\Models\Professor;
 use App\Models\User;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class AlunoController extends Controller
 {
+    use AuthorizesProfessorScope;
+
     public function index()
     {
         $query = Aluno::query()
@@ -45,11 +48,11 @@ class AlunoController extends Controller
             'professor_id' => 'nullable|exists:professores,id',
         ]);
 
-        $data['valor_mensalidade'] = $this->mensalidadePorPlano((int) $data['plano_aulas_semana']);
-
         if ($this->isProfessorUser()) {
             $data['professor_id'] = $this->requireCurrentProfessorId();
         }
+
+        $data['valor_mensalidade'] = $this->mensalidadePorPlano((int) $data['plano_aulas_semana']);
 
         Aluno::create($data);
 
@@ -58,7 +61,7 @@ class AlunoController extends Controller
 
     public function edit(Aluno $aluno)
     {
-        $this->authorizeAlunoAccess($aluno);
+        $this->assertAlunoAccessibleAsProfessor($aluno);
 
         return view('alunos.edit', [
             'aluno' => $aluno,
@@ -68,7 +71,7 @@ class AlunoController extends Controller
 
     public function update(Request $request, Aluno $aluno)
     {
-        $this->authorizeAlunoAccess($aluno);
+        $this->assertAlunoAccessibleAsProfessor($aluno);
 
         $data = $request->validate([
             'nome' => 'required|string|max:255',
@@ -79,11 +82,11 @@ class AlunoController extends Controller
             'professor_id' => 'nullable|exists:professores,id',
         ]);
 
-        $data['valor_mensalidade'] = $this->mensalidadePorPlano((int) $data['plano_aulas_semana']);
-
         if ($this->isProfessorUser()) {
             $data['professor_id'] = $this->requireCurrentProfessorId();
         }
+
+        $data['valor_mensalidade'] = $this->mensalidadePorPlano((int) $data['plano_aulas_semana']);
 
         $aluno->update($data);
 
@@ -92,7 +95,7 @@ class AlunoController extends Controller
 
     public function destroy(Aluno $aluno)
     {
-        $this->authorizeAlunoAccess($aluno);
+        $this->assertAlunoAccessibleAsProfessor($aluno);
 
         $today = Carbon::today()->toDateString();
         $competenciaAtual = Carbon::today()->format('Y-m');
@@ -141,13 +144,13 @@ class AlunoController extends Controller
 
         // Usuários com acesso ao sistema que também podem atuar como professor.
         $usuariosElegiveis = User::query()
-            ->whereIn('perfil', ['Administrador', 'Professor'])
+            ->where('perfil', 'Administrador')
             ->get(['id', 'name', 'email']);
 
         foreach ($usuariosElegiveis as $usuario) {
             $professor = Professor::query()->firstOrNew(['user_id' => $usuario->id]);
 
-            if (!$professor->exists) {
+            if (! $professor->exists) {
                 $professor->nome = $usuario->name;
                 $professor->email = $usuario->email;
                 $professor->ativo = true;
@@ -158,11 +161,11 @@ class AlunoController extends Controller
 
             // Mantém cadastro sincronizado sem sobrescrever campos já definidos manualmente.
             $dirty = false;
-            if (!$professor->nome) {
+            if (! $professor->nome) {
                 $professor->nome = $usuario->name;
                 $dirty = true;
             }
-            if (!$professor->email) {
+            if (! $professor->email) {
                 $professor->email = $usuario->email;
                 $dirty = true;
             }
@@ -175,37 +178,6 @@ class AlunoController extends Controller
             ->where('ativo', true)
             ->orderBy('nome')
             ->get();
-    }
-
-    private function isProfessorUser(): bool
-    {
-        return (auth()->user()?->perfil ?? null) === 'Professor';
-    }
-
-    private function currentProfessorId(): ?int
-    {
-        return auth()->user()?->professor?->id;
-    }
-
-    private function authorizeAlunoAccess(Aluno $aluno): void
-    {
-        if (!$this->isProfessorUser()) {
-            return;
-        }
-
-        if ((int) $aluno->professor_id !== (int) $this->requireCurrentProfessorId()) {
-            abort(403, 'Você só pode acessar alunos vinculados ao seu cadastro.');
-        }
-    }
-
-    private function requireCurrentProfessorId(): int
-    {
-        $id = $this->currentProfessorId();
-        if (!$id) {
-            abort(403, 'Seu usuário professor não está vinculado ao cadastro de professor.');
-        }
-
-        return (int) $id;
     }
 
     private function mensalidadePorPlano(int $planoAulasSemana): float
