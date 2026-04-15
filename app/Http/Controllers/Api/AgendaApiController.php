@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\AuthorizesProfessorScope;
 use App\Http\Controllers\Controller;
 use App\Models\AgendaItem;
 use App\Models\Aluno;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AgendaApiController extends Controller
 {
+    use AuthorizesProfessorScope;
+
     public function index(Request $request): JsonResponse
     {
         $query = AgendaItem::query()
@@ -18,7 +22,10 @@ class AgendaApiController extends Controller
             ->orderBy('data')
             ->orderBy('hora_inicio');
 
-        $this->applyProfessorScope($query, $request);
+        if ($this->isProfessorUser()) {
+            $pid = $this->requireCurrentProfessorId();
+            $query->whereHas('aluno', fn (Builder $q) => $q->where('professor_id', $pid));
+        }
 
         if ($request->filled('mes')) {
             $mes = $request->string('mes')->toString();
@@ -28,7 +35,7 @@ class AgendaApiController extends Controller
             });
         }
 
-        if ($request->filled('professora')) {
+        if ($request->filled('professora') && ! $this->isProfessorUser()) {
             $query->where('professora_nome', $request->string('professora')->toString());
         }
 
@@ -51,15 +58,15 @@ class AgendaApiController extends Controller
         ]);
 
         $aluno = Aluno::query()->findOrFail($data['aluno_id']);
-        $this->assertProfessorAlunoAccess($request, $aluno->id);
+        $this->assertAlunoAccessibleAsProfessor($aluno);
+
         $horaInicio = $data['hora_inicio'];
-        $this->assertProfessorAllowedHour($request, $horaInicio);
         $horaFim = $data['hora_fim'] ?? $this->suggestHoraFim($horaInicio);
 
         $item = AgendaItem::query()->create([
             'aluno_id' => $aluno->id,
             'aluna_nome' => $aluno->nome,
-            'professora_nome' => $this->resolveProfessorNome($request, $data['professora_nome'] ?? null),
+            'professora_nome' => $data['professora_nome'] ?? $aluno->professor?->nome ?? $request->user()->name ?? 'Karine',
             'data' => $data['data'],
             'hora_inicio' => $horaInicio,
             'hora_fim' => $horaFim,
@@ -73,7 +80,7 @@ class AgendaApiController extends Controller
 
     public function update(Request $request, AgendaItem $agendaItem): JsonResponse
     {
-        $this->assertProfessorAlunoAccess($request, $agendaItem->aluno_id);
+        $this->assertAgendaItemAccessibleAsProfessor($agendaItem);
 
         $data = $request->validate([
             'data' => ['nullable', 'date_format:Y-m-d'],
@@ -83,10 +90,6 @@ class AgendaApiController extends Controller
             'observacoes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        if (array_key_exists('hora_inicio', $data) && $data['hora_inicio']) {
-            $this->assertProfessorAllowedHour($request, $data['hora_inicio']);
-        }
-
         $agendaItem->fill($data);
         $agendaItem->save();
 
@@ -95,7 +98,8 @@ class AgendaApiController extends Controller
 
     public function destroy(AgendaItem $agendaItem): JsonResponse
     {
-        $this->assertProfessorAlunoAccess(request(), $agendaItem->aluno_id);
+        $this->assertAgendaItemAccessibleAsProfessor($agendaItem);
+
         $agendaItem->delete();
 
         return response()->json(['ok' => true]);
@@ -126,61 +130,5 @@ class AgendaApiController extends Controller
         $ts = mktime($h, $m + 50, 0);
 
         return sprintf('%02d:%02d', (int) date('H', $ts), (int) date('i', $ts));
-    }
-
-    private function applyProfessorScope($query, Request $request): void
-    {
-        if (($request->user()?->perfil ?? null) !== 'Professor') {
-            return;
-        }
-
-        $query
-            ->whereBetween('hora_inicio', ['14:00', '19:59'])
-            ->whereHas('aluno.professor', function ($q) use ($request) {
-                $q->where('user_id', $request->user()->id);
-            });
-    }
-
-    private function assertProfessorAlunoAccess(Request $request, ?int $alunoId): void
-    {
-        if (($request->user()?->perfil ?? null) !== 'Professor') {
-            return;
-        }
-
-        if (!$alunoId) {
-            abort(403, 'Aluno inválido para este perfil.');
-        }
-
-        $allowed = Aluno::query()
-            ->whereKey($alunoId)
-            ->whereHas('professor', function ($q) use ($request) {
-                $q->where('user_id', $request->user()->id);
-            })
-            ->exists();
-
-        if (!$allowed) {
-            abort(403, 'Você só pode acessar alunos vinculados ao seu cadastro.');
-        }
-    }
-
-    private function assertProfessorAllowedHour(Request $request, string $horaInicio): void
-    {
-        if (($request->user()?->perfil ?? null) !== 'Professor') {
-            return;
-        }
-
-        $hora = (int) substr($horaInicio, 0, 2);
-        if ($hora < 14 || $hora > 19) {
-            abort(403, 'Professor só pode operar agenda no período da tarde.');
-        }
-    }
-
-    private function resolveProfessorNome(Request $request, ?string $fallback): string
-    {
-        if (($request->user()?->perfil ?? null) === 'Professor') {
-            return $request->user()->name;
-        }
-
-        return $fallback ?: 'Karine';
     }
 }

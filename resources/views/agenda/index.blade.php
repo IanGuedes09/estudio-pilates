@@ -23,7 +23,7 @@
             </div>
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Professora</label>
-                <select x-model="filters.professora" @change="buildBoardFromItems()" :disabled="isProfessorMode" class="w-full rounded-xl border border-slate-300 bg-white/80 px-3 py-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                <select x-model="filters.professora" @change="buildBoardFromItems()" class="w-full rounded-xl border border-slate-300 bg-white/80 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
                     <option value="">Todas</option>
                     <template x-for="nome in professoras" :key="nome">
                         <option :value="nome" x-text="nome"></option>
@@ -40,12 +40,11 @@
             </div>
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Periodo</label>
-                <select x-model="filters.periodo" @change="buildBoardFromItems()" :disabled="isProfessorMode" class="w-full rounded-xl border border-slate-300 bg-white/80 px-3 py-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+                <select x-model="filters.periodo" @change="buildBoardFromItems()" class="w-full rounded-xl border border-slate-300 bg-white/80 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
                     <option value="">Todos</option>
                     <option value="MANHA">Manha (08h as 12h)</option>
                     <option value="TARDE">Tarde (14h as 19h)</option>
                 </select>
-                <p x-show="isProfessorMode" class="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">Perfil Professor: acesso restrito ao período da tarde.</p>
             </div>
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Acoes</label>
@@ -175,14 +174,10 @@
 
     <script>
         function agendaPage() {
-            const currentUserPerfil = @js(auth()->user()->perfil ?? null);
-            const currentUserName = @js(auth()->user()->name ?? null);
             return {
                 loading: false,
                 error: '',
                 items: [],
-                isProfessorMode: currentUserPerfil === 'Professor',
-                currentProfessorName: currentUserName,
                 filters: {
                     mes: '',
                     professora: '',
@@ -223,10 +218,6 @@
                     const year = now.getFullYear();
                     const month = String(now.getMonth() + 1).padStart(2, '0');
                     this.filters.mes = `${year}-${month}`;
-                    if (this.isProfessorMode) {
-                        this.filters.periodo = 'TARDE';
-                        this.filters.professora = this.currentProfessorName || '';
-                    }
                     // Garante que o select da semana esteja montado antes de definir o valor.
                     this.$nextTick(() => {
                         const currentIdx = this.currentWeekIndex(now);
@@ -265,7 +256,7 @@
                             || item.data.slice(0, 7) === this.filters.mes
                             || weekDates.has(item.data);
                         const byProfessora = !this.filters.professora || item.professora?.nome === this.filters.professora;
-                        const activePeriodo = this.isProfessorMode ? 'TARDE' : this.filters.periodo;
+                        const activePeriodo = this.filters.periodo;
                         const byPeriodo = !activePeriodo || this.matchesPeriodo(item.hora_inicio, activePeriodo);
                         return byMonth && byProfessora && byPeriodo;
                     });
@@ -505,7 +496,7 @@
                                 id: null,
                                 name: a.nome,
                                 professorAlunoNome: a.professor_nome || null,
-                                professoraNome: this.filters.professora || this.currentProfessorName || 'Karine',
+                                professoraNome: this.filters.professora || 'Karine',
                                 status: 'AGENDADA',
                                 horaFim: null,
                                 slotLabel: `${jaAlocado + i + 1}/${totalNaSemana}`,

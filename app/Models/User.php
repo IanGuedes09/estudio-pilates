@@ -35,4 +35,47 @@ class User extends Authenticatable
     {
         return $this->hasOne(Professor::class);
     }
+
+    /**
+     * Garante linha em `professores` com `user_id` para perfil Professor.
+     * O seeder só cria `users`; sem isso, gestão de alunos e APIs retornam 403.
+     */
+    public function professorVinculado(): ?Professor
+    {
+        $existing = $this->professor()->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        if (($this->perfil ?? null) !== 'Professor') {
+            return null;
+        }
+
+        $orphan = Professor::query()
+            ->whereNull('user_id')
+            ->where('email', $this->email)
+            ->first();
+
+        if ($orphan) {
+            $orphan->user_id = $this->id;
+            if (! $orphan->nome) {
+                $orphan->nome = $this->name;
+            }
+            $orphan->ativo = true;
+            $orphan->save();
+            $this->setRelation('professor', $orphan);
+
+            return $orphan;
+        }
+
+        $created = $this->professor()->create([
+            'nome' => $this->name,
+            'email' => $this->email,
+            'ativo' => true,
+            'comissao_percentual' => 0,
+        ]);
+        $this->setRelation('professor', $created);
+
+        return $created;
+    }
 }

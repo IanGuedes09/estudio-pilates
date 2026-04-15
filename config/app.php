@@ -123,4 +123,15 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cadastro público (auto-registro em /register)
+    |--------------------------------------------------------------------------
+    |
+    | Em produção mantenha false e crie usuários pelo painel/artisan.
+    |
+    */
+
+    'allow_registration' => (bool) env('APP_ALLOW_REGISTRATION', false),
+
 ];

@@ -53,8 +53,7 @@
                 <div class="lg:col-span-3">
                     <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Professora</label>
                     <select x-model="activeProfessor"
-                            :disabled="isProfessorMode"
-                            class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+                            class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                         <option value="">Todas</option>
                         <template x-for="nome in professorasFromItems" :key="nome">
                             <option :value="nome" x-text="nome"></option>
@@ -91,7 +90,7 @@
         {{-- Apos busca: resumo + tabela --}}
         <template x-if="hasBusca">
             <div>
-                <div x-show="!isProfessorMode" class="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div class="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
                         <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Valor recebido</p>
                         <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white" x-text="money(totalRecebido())"></p>
@@ -120,9 +119,9 @@
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Aluna</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Metodo</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Mensalidade</th>
-                                    <th x-show="!isProfessorMode" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Valor liquido</th>
-                                    <th x-show="!isProfessorMode" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Comissao</th>
-                                    <th x-show="!isProfessorMode" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Estudio</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Valor liquido</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Comissao</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Estudio</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Status</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Comprovante</th>
                                 </tr>
@@ -147,12 +146,12 @@
                                             </select>
                                         </td>
                                         <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-200" x-text="money(item.valor_bruto)"></td>
-                                        <td x-show="!isProfessorMode" class="px-4 py-3 text-sm text-slate-700 dark:text-slate-200" x-text="money(item.valor_liquido)"></td>
-                                        <td x-show="!isProfessorMode" class="px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
+                                        <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-200" x-text="money(item.valor_liquido)"></td>
+                                        <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
                                             <span x-text="money(item.valor_comissao)"></span>
                                             <span class="text-xs text-slate-500 dark:text-slate-400" x-text="'(' + item.percentual_comissao + '%)'"></span>
                                         </td>
-                                        <td x-show="!isProfessorMode" class="px-4 py-3 text-sm text-slate-700 dark:text-slate-200" x-text="money(item.valor_estudio)"></td>
+                                        <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-200" x-text="money(item.valor_estudio)"></td>
                                         <td class="px-4 py-3">
                                             <span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="statusClass(item.status)" x-text="item.status"></span>
                                         </td>
@@ -202,16 +201,12 @@
 
     <script>
         function pagamentosPage() {
-            const currentUserPerfil = @js(auth()->user()->perfil ?? null);
-            const currentUserName = @js(auth()->user()->name ?? null);
             return {
                 loading: false,
                 error: '',
                 items: [],
                 hasBusca: false,
                 activeProfessor: '',
-                isProfessorMode: currentUserPerfil === 'Professor',
-                currentProfessorName: currentUserName,
                 uploading: {},
                 deletingComprovante: {},
                 savingMetodo: {},
@@ -225,9 +220,6 @@
                     const y = now.getFullYear();
                     const m = String(now.getMonth() + 1).padStart(2, '0');
                     this.filters.competencia = `${y}-${m}`;
-                    if (this.isProfessorMode) {
-                        this.activeProfessor = this.currentProfessorName || '';
-                    }
                     // Busca automatica ao abrir, usando o mes atual.
                     this.load();
                 },
@@ -269,9 +261,6 @@
                         }
                         this.items = await response.json();
                         this.hasBusca = true;
-                        if (this.isProfessorMode) {
-                            this.activeProfessor = this.currentProfessorName || '';
-                        }
                         if (this.activeProfessor && !this.professorasFromItems.includes(this.activeProfessor)) {
                             this.activeProfessor = '';
                         }

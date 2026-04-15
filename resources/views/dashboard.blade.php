@@ -4,7 +4,6 @@
 
 @section('content')
     @php
-        $isProfessor = (auth()->user()->perfil ?? null) === 'Professor';
         $todayBr = now()->format('d/m');
     @endphp
 
@@ -23,8 +22,7 @@
         Aqui você pode colocar links para seus módulos, relatórios e indicadores principais do estúdio.
     </p>
 
-    @if (!$isProfessor)
-        <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/60">
                 <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Alunas ativas</p>
                 <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{{ $resumo['alunas_ativas'] }}</p>
@@ -42,7 +40,6 @@
                 <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">R$ {{ number_format($resumo['lucro_estudio_mes'], 2, ',', '.') }}</p>
             </div>
         </div>
-    @endif
 
     <div class="fade-in-up-delay grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <a href="{{ route('agenda.index') }}" class="group rounded-2xl border border-emerald-300/60 bg-emerald-400/10 p-5 text-emerald-900 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-400/20 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-100">
@@ -78,8 +75,7 @@
             <p class="mt-1 text-sm text-violet-800/80 dark:text-violet-100/80">Acompanhe recebimentos, comissao e repasses.</p>
         </a>
 
-        @if (!$isProfessor)
-            <a href="{{ route('alunos.create') }}" class="group rounded-2xl border border-cyan-300/60 bg-cyan-400/10 p-5 text-cyan-900 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-400/20 dark:border-cyan-400/40 dark:bg-cyan-500/10 dark:text-cyan-100">
+        <a href="{{ route('alunos.create') }}" class="group rounded-2xl border border-cyan-300/60 bg-cyan-400/10 p-5 text-cyan-900 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-400/20 dark:border-cyan-400/40 dark:bg-cyan-500/10 dark:text-cyan-100">
                 <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-200">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -89,7 +85,6 @@
                 <p class="mt-2 text-lg font-semibold">Cadastrar Novo Aluno</p>
                 <p class="mt-1 text-sm text-cyan-800/80 dark:text-cyan-100/80">Adicionar um novo aluno em poucos passos.</p>
             </a>
-        @endif
 
         @if ((auth()->user()->perfil ?? null) === 'Administrador')
             <a href="{{ route('professores.create') }}" class="group rounded-2xl border border-amber-300/60 bg-amber-400/10 p-5 text-amber-900 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-400/20 dark:border-amber-400/40 dark:bg-amber-500/10 dark:text-amber-100">
